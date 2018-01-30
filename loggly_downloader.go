@@ -37,14 +37,22 @@ type Result struct {
 
 var token string
 
+var uuid string
+
 func init() {
 	flag.StringVar(&token, "token", "", "loggly api token.")
+	flag.StringVar(&uuid, "uuid", "", "device uuid.")
 	flag.Parse()
 }
 
 func main() {
 	if len(token) < 1 {
 		fmt.Println("token is empty.")
+		os.Exit(0)
+	}
+
+	if len(uuid) < 1 {
+		fmt.Println("uuid is empty.")
 		os.Exit(0)
 	}
 
