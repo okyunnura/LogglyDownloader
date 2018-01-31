@@ -6,7 +6,26 @@ import (
 	"os"
 )
 
-type Result struct {
+type SearchResult struct {
+	Rsid struct {
+		Status      string  `json:"status"`
+		DateFrom    int64   `json:"date_from"`
+		ElapsedTime float64 `json:"elapsed_time"`
+		DateTo      int64   `json:"date_to"`
+		ID          string  `json:"id"`
+	} `json:"rsid"`
+}
+
+type TagResult struct {
+	TotalEvents int `json:"total_events"`
+	Tag []struct {
+		Count int    `json:"count"`
+		Term  string `json:"term"`
+	} `json:"tag"`
+	UniqueFieldCount int `json:"unique_field_count"`
+}
+
+type EventResult struct {
 	Events []struct {
 		Raw       interface{} `json:"raw"`
 		Logtypes  []string    `json:"logtypes"`
@@ -37,11 +56,11 @@ type Result struct {
 
 var token string
 
-var uuid string
+var account string
 
 func init() {
 	flag.StringVar(&token, "token", "", "loggly api token.")
-	flag.StringVar(&uuid, "uuid", "", "device uuid.")
+	flag.StringVar(&account, "account", "", "loggly account name.")
 	flag.Parse()
 }
 
@@ -50,12 +69,14 @@ func main() {
 		fmt.Println("token is empty.")
 		os.Exit(0)
 	}
+	fmt.Println("token:" + token)
 
-	if len(uuid) < 1 {
-		fmt.Println("uuid is empty.")
+	if len(account) < 1 {
+		fmt.Println("account is empty.")
 		os.Exit(0)
 	}
+	fmt.Println("account:" + account)
 
-	fmt.Println("token:", token)
+
 
 }
