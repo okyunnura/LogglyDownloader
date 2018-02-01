@@ -91,6 +91,26 @@ func main() {
 	path := "/tmp"
 	dir := root + path
 
+	if err := os.RemoveAll(dir); err != nil {
+		fmt.Println("error:path dir not deleted")
+		log.Fatal(err)
+		os.Exit(0)
+	}
+
+	if err := os.MkdirAll(dir, 0777); err != nil {
+		fmt.Println("error:path dir not created")
+		log.Fatal(err)
+		os.Exit(0)
+	}
+
+	db, err := scribble.New(dir, nil)
+	if err != nil {
+		fmt.Println("error:scribble new")
+		log.Fatal(err)
+		os.Exit(0)
+	}
+
+	//TODO params
 	day := "01-30"
 	from := fmt.Sprintf("2018-%sT01:00:00.000Z", day)
 	until := fmt.Sprintf("2018-%sT09:00:00.000Z", day)
@@ -122,6 +142,7 @@ func main() {
 		uuid := tag.Term
 		fmt.Printf("%d/%d [%s]\n", index+1, len(tagResult.Tag), uuid)
 
+		logfile := dir + "/" + uuid + ".txt"
 		query := fmt.Sprintf("tag:%s", uuid)
 		size := 1000
 
@@ -135,16 +156,32 @@ func main() {
 				os.Exit(0)
 			}
 
-			db, err := scribble.New(dir+path, nil)
-			if err != nil {
-				log.Fatal(err)
-				os.Exit(0)
-			}
-
 			name := fmt.Sprintf("%02d", count)
 			db.Write(uuid, name, eventResult)
 
 			eventUrl = eventResult.Next
+		}
+
+		records, err := db.ReadAll(uuid)
+		if err != nil {
+			fmt.Println("Error", err)
+		}
+
+		//results := []Result{}
+		for _, f := range records {
+			var eventResult EventResult
+			if err := json.Unmarshal([]byte(f), &eventResult); err != nil {
+				fmt.Println("Error", err)
+			}
+			for _, event := range eventResult.Events {
+				value := fmt.Sprintf("%s\t%s", event.Event.JSON.Timestamp, event.Event.JSON.Message)
+				if err := appendText(logfile, value); err != nil {
+					fmt.Println("error:append text")
+					log.Fatal(err)
+					os.Exit(0)
+
+				}
+			}
 		}
 	}
 
@@ -160,4 +197,18 @@ func request(url string, result interface{}) error {
 	body, _ := ioutil.ReadAll(resp.Body)
 
 	return json.Unmarshal(body, &result)
+}
+
+func appendText(path, text string) error {
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0666)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.WriteString(text + "\n")
+	if err != nil {
+		return err
+	}
+	return nil
 }
