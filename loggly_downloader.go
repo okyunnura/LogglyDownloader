@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"encoding/json"
 	"log"
+	"github.com/nanobox-io/golang-scribble"
 )
 
 type SearchResult struct {
@@ -85,13 +86,17 @@ func main() {
 	}
 	fmt.Println("account:" + account)
 
-	// TODO params
+	//TODO params
+	root, _ := os.Getwd()
+	path := "/tmp"
+	dir := root + path
+
 	day := "01-30"
 	from := fmt.Sprintf("2018-%sT01:00:00.000Z", day)
 	until := fmt.Sprintf("2018-%sT09:00:00.000Z", day)
 
 	var searchResult SearchResult
-	searchUrl := fmt.Sprintf("/search?q=*&from=%s&until=%s", from, until)
+	searchUrl := fmt.Sprintf("%s/search?q=*&from=%s&until=%s", baseUrl, from, until)
 
 	if err := request(searchUrl, &searchResult); err != nil {
 		fmt.Println("error:search request")
@@ -101,7 +106,9 @@ func main() {
 	fmt.Printf("%q\n", searchResult)
 
 	var tagResult TagResult
-	tagUrl := fmt.Sprintf("/fields/tag?rsid=%s", searchResult.Rsid.ID)
+	//TODO fix query
+	//tagUrl := fmt.Sprintf("/fields/tag?rsid=%s", searchResult.Rsid.ID)
+	tagUrl := fmt.Sprintf("%s/fields/tag?q=*&from=%s&until=%s", baseUrl, from, until)
 
 	if err := request(tagUrl, &tagResult); err != nil {
 		fmt.Println("error:tag request")
@@ -110,11 +117,42 @@ func main() {
 	}
 	fmt.Printf("%q\n", tagResult)
 
+	fmt.Println("start uuid value load.")
+	for index, tag := range tagResult.Tag {
+		uuid := tag.Term
+		fmt.Printf("%d/%d [%s]\n", index+1, len(tagResult.Tag), uuid)
+
+		query := fmt.Sprintf("tag:%s", uuid)
+		size := 1000
+
+		var eventResult EventResult
+		eventUrl := fmt.Sprintf("%s/events/iterate?q=%s&from=%s&until=%s&size=%d", baseUrl, query, from, until, size)
+
+		for count := 1; eventUrl != ""; count++ {
+			if err := request(eventUrl, &eventResult); err != nil {
+				fmt.Println("error:event request")
+				log.Fatal(err)
+				os.Exit(0)
+			}
+
+			db, err := scribble.New(dir+path, nil)
+			if err != nil {
+				log.Fatal(err)
+				os.Exit(0)
+			}
+
+			name := fmt.Sprintf("%02d", count)
+			db.Write(uuid, name, eventResult)
+
+			eventUrl = eventResult.Next
+		}
+	}
+
 }
 
-func request(path string, result interface{}) error {
-	fmt.Println("request:" + baseUrl + path)
-	req, _ := http.NewRequest("GET", baseUrl+path, nil)
+func request(url string, result interface{}) error {
+	fmt.Println("request:" + url)
+	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 
 	client := new(http.Client)
