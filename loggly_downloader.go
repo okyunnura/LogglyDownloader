@@ -146,10 +146,10 @@ func main() {
 		query := fmt.Sprintf("tag:%s", uuid)
 		size := 1000
 
-		var eventResult EventResult
 		eventUrl := fmt.Sprintf("%s/events/iterate?q=%s&from=%s&until=%s&size=%d", baseUrl, query, from, until, size)
 
 		for count := 1; eventUrl != ""; count++ {
+			eventResult := EventResult{}
 			if err := request(eventUrl, &eventResult); err != nil {
 				fmt.Println("error:event request")
 				log.Fatal(err)
