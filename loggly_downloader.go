@@ -4,11 +4,13 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"net/http"
-	"io/ioutil"
 	"encoding/json"
 	"log"
+	"github.com/comail/colog"
 	"github.com/nanobox-io/golang-scribble"
+	"time"
+	"net/http"
+	"io/ioutil"
 )
 
 type SearchResult struct {
@@ -60,31 +62,83 @@ type EventResult struct {
 }
 
 var token string
-
 var account string
-
+var fromDate string
+var toDate string
 var baseUrl string
 
 func init() {
+	colog.SetDefaultLevel(colog.LDebug)
+	colog.SetMinLevel(colog.LTrace)
+	colog.SetFormatter(&colog.StdFormatter{
+		Colors: true,
+		Flag:   log.Ldate | log.Ltime | log.Lshortfile,
+	})
+	colog.Register()
+
 	flag.StringVar(&token, "token", "", "loggly api token.")
 	flag.StringVar(&account, "account", "", "loggly account name.")
+	flag.StringVar(&fromDate, "fromDate", "", "log date from.")
+	flag.StringVar(&toDate, "toDate", "", "log date to.")
 	flag.Parse()
 
 	baseUrl = fmt.Sprintf("https://%s.loggly.com/apiv2", account)
 }
 
 func main() {
-	if len(token) < 1 {
-		fmt.Println("token is empty.")
-		os.Exit(0)
-	}
-	fmt.Println("token:" + token)
+	paramError := false
 
-	if len(account) < 1 {
-		fmt.Println("account is empty.")
-		os.Exit(0)
+	//token
+	if len(token) < 1 {
+		log.Println("error: token is empty.")
+		paramError = true
+	} else {
+		log.Println("token:" + token)
 	}
-	fmt.Println("account:" + account)
+
+	//account
+	if len(account) < 1 {
+		log.Println("error: account is empty.")
+		paramError = true
+	} else {
+		log.Println("account:" + account)
+	}
+
+	//fromDate
+	if len(fromDate) < 1 {
+		log.Println("error: fromDate is empty.")
+		paramError = true
+	} else {
+		fromTime, err := time.Parse(time.RFC3339, fromDate)
+		if err != nil {
+			log.Println("error: fromDate parse error.")
+			log.Println(err)
+			paramError = true
+		} else {
+			log.Println("fromDate:" + fromTime.String())
+		}
+	}
+
+	//toDate
+	if len(toDate) < 1 {
+		log.Println("error: toDate is empty.")
+		paramError = true
+	} else {
+		log.Println("toDate:" + toDate)
+		toTime, err := time.Parse(time.RFC3339, toDate)
+		if err != nil {
+			log.Println("error: toDate parse error.")
+			log.Println(err)
+			paramError = true
+		} else {
+			log.Println("fromDate:" + toTime.String())
+		}
+	}
+
+	//param check
+	if paramError {
+		log.Fatalln("error: params error.")
+	}
 
 	//TODO params
 	root, _ := os.Getwd()
@@ -92,22 +146,19 @@ func main() {
 	dir := root + path
 
 	if err := os.RemoveAll(dir); err != nil {
-		fmt.Println("error:path dir not deleted")
+		log.Println("error: path dir not deleted")
 		log.Fatal(err)
-		os.Exit(0)
 	}
 
 	if err := os.MkdirAll(dir, 0777); err != nil {
-		fmt.Println("error:path dir not created")
+		log.Println("error: path dir not created")
 		log.Fatal(err)
-		os.Exit(0)
 	}
 
 	db, err := scribble.New(dir, nil)
 	if err != nil {
-		fmt.Println("error:scribble new")
+		log.Println("error: scribble new")
 		log.Fatal(err)
-		os.Exit(0)
 	}
 
 	//TODO params
@@ -119,11 +170,10 @@ func main() {
 	searchUrl := fmt.Sprintf("%s/search?q=*&from=%s&until=%s", baseUrl, from, until)
 
 	if err := request(searchUrl, &searchResult); err != nil {
-		fmt.Println("error:search request")
+		log.Println("error: search request")
 		log.Fatal(err)
-		os.Exit(0)
 	}
-	fmt.Printf("%q\n", searchResult)
+	log.Printf("%q\n", searchResult)
 
 	var tagResult TagResult
 	//TODO fix query
@@ -131,16 +181,15 @@ func main() {
 	tagUrl := fmt.Sprintf("%s/fields/tag?q=*&from=%s&until=%s", baseUrl, from, until)
 
 	if err := request(tagUrl, &tagResult); err != nil {
-		fmt.Println("error:tag request")
+		log.Println("error: tag request")
 		log.Fatal(err)
-		os.Exit(0)
 	}
-	fmt.Printf("%q\n", tagResult)
+	log.Printf("%q\n", tagResult)
 
-	fmt.Println("start uuid value load.")
+	log.Println("start uuid value load.")
 	for index, tag := range tagResult.Tag {
 		uuid := tag.Term
-		fmt.Printf("%d/%d [%s]\n", index+1, len(tagResult.Tag), uuid)
+		log.Printf("%d/%d [%s]\n", index+1, len(tagResult.Tag), uuid)
 
 		logfile := dir + "/" + uuid + ".txt"
 		query := fmt.Sprintf("tag:%s", uuid)
@@ -151,9 +200,8 @@ func main() {
 		for count := 1; eventUrl != ""; count++ {
 			eventResult := EventResult{}
 			if err := request(eventUrl, &eventResult); err != nil {
-				fmt.Println("error:event request")
-				log.Fatal(err)
-				os.Exit(0)
+				log.Println("error: event request")
+				log.Fatalln(err)
 			}
 
 			name := fmt.Sprintf("%02d", count)
@@ -164,22 +212,23 @@ func main() {
 
 		records, err := db.ReadAll(uuid)
 		if err != nil {
-			fmt.Println("Error", err)
+			log.Println("error: db readall error.")
+			log.Fatalln(err)
 		}
 
 		//results := []Result{}
 		for _, f := range records {
 			var eventResult EventResult
 			if err := json.Unmarshal([]byte(f), &eventResult); err != nil {
-				fmt.Println("Error", err)
+				log.Println("error: json unmarshal error.")
+				log.Fatalln(err)
 			}
 			for _, event := range eventResult.Events {
 				value := fmt.Sprintf("%s\t%s", event.Event.JSON.Timestamp, event.Event.JSON.Message)
 				if err := appendText(logfile, value); err != nil {
-					fmt.Println("error:append text")
-					log.Fatal(err)
+					log.Println("error: append text")
+					log.Fatalln(err)
 					os.Exit(0)
-
 				}
 			}
 		}
@@ -188,7 +237,7 @@ func main() {
 }
 
 func request(url string, result interface{}) error {
-	fmt.Println("request:" + url)
+	log.Println("request:" + url)
 	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 
