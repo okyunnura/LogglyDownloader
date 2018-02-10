@@ -61,10 +61,12 @@ type EventResult struct {
 	Next string `json:"next"`
 }
 
+var dateFormat = "2006-01-02T15:04:05"
+
 var token string
 var account string
-var fromDate string
-var toDate string
+var fromDate *time.Time
+var toDate *time.Time
 var baseUrl string
 
 func init() {
@@ -76,11 +78,34 @@ func init() {
 	})
 	colog.Register()
 
+	var from, to string
 	flag.StringVar(&token, "token", "", "loggly api token.")
 	flag.StringVar(&account, "account", "", "loggly account name.")
-	flag.StringVar(&fromDate, "fromDate", "", "log date from.")
-	flag.StringVar(&toDate, "toDate", "", "log date to.")
+	flag.StringVar(&from, "fromDate", "", "log date from.")
+	flag.StringVar(&to, "toDate", "", "log date to.")
 	flag.Parse()
+
+	jst, _ := time.LoadLocation("Asia/Tokyo")
+
+	if len(from) > 0 {
+		f, err := time.ParseInLocation(dateFormat, from, jst)
+		if err != nil {
+			log.Println("error: fromDate parse error.")
+			log.Println(err)
+		} else {
+			fromDate = &f
+		}
+	}
+
+	if len(to) > 0 {
+		t, err := time.ParseInLocation(dateFormat, to, jst)
+		if err != nil {
+			log.Println("error: toDate parse error.")
+			log.Println(err)
+		} else {
+			toDate = &t
+		}
+	}
 
 	baseUrl = fmt.Sprintf("https://%s.loggly.com/apiv2", account)
 }
@@ -93,7 +118,7 @@ func main() {
 		log.Println("error: token is empty.")
 		paramError = true
 	} else {
-		log.Println("token:" + token)
+		log.Println("token: " + token)
 	}
 
 	//account
@@ -101,38 +126,23 @@ func main() {
 		log.Println("error: account is empty.")
 		paramError = true
 	} else {
-		log.Println("account:" + account)
+		log.Println("account: " + account)
 	}
 
 	//fromDate
-	if len(fromDate) < 1 {
+	if fromDate == nil {
 		log.Println("error: fromDate is empty.")
 		paramError = true
 	} else {
-		fromTime, err := time.Parse(time.RFC3339, fromDate)
-		if err != nil {
-			log.Println("error: fromDate parse error.")
-			log.Println(err)
-			paramError = true
-		} else {
-			log.Println("fromDate:" + fromTime.String())
-		}
+		log.Println("fromDate: " + fromDate.String() + " (" + fromDate.UTC().String() + ")")
 	}
 
 	//toDate
-	if len(toDate) < 1 {
+	if toDate == nil {
 		log.Println("error: toDate is empty.")
 		paramError = true
 	} else {
-		log.Println("toDate:" + toDate)
-		toTime, err := time.Parse(time.RFC3339, toDate)
-		if err != nil {
-			log.Println("error: toDate parse error.")
-			log.Println(err)
-			paramError = true
-		} else {
-			log.Println("fromDate:" + toTime.String())
-		}
+		log.Println("toDate: " + toDate.String() + " (" + toDate.UTC().String() + ")")
 	}
 
 	//param check
@@ -161,10 +171,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	//TODO params
-	day := "01-30"
-	from := fmt.Sprintf("2018-%sT01:00:00.000Z", day)
-	until := fmt.Sprintf("2018-%sT09:00:00.000Z", day)
+	from := fromDate.UTC().Format(time.RFC3339)
+	until := toDate.UTC().Format(time.RFC3339)
 
 	var searchResult SearchResult
 	searchUrl := fmt.Sprintf("%s/search?q=*&from=%s&until=%s", baseUrl, from, until)
@@ -237,7 +245,7 @@ func main() {
 }
 
 func request(url string, result interface{}) error {
-	log.Println("request:" + url)
+	log.Println("request: " + url)
 	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 
