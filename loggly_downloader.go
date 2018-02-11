@@ -61,8 +61,6 @@ type EventResult struct {
 	Next string `json:"next"`
 }
 
-var dateFormat = "2006-01-02T15:04:05"
-
 var token string
 var account string
 var fromDate *time.Time
@@ -88,7 +86,7 @@ func init() {
 	jst, _ := time.LoadLocation("Asia/Tokyo")
 
 	if len(from) > 0 {
-		f, err := time.ParseInLocation(dateFormat, from, jst)
+		f, err := time.ParseInLocation(time.RFC3339, from, jst)
 		if err != nil {
 			log.Println("error: fromDate parse error.")
 			log.Println(err)
@@ -98,7 +96,7 @@ func init() {
 	}
 
 	if len(to) > 0 {
-		t, err := time.ParseInLocation(dateFormat, to, jst)
+		t, err := time.ParseInLocation(time.RFC3339, to, jst)
 		if err != nil {
 			log.Println("error: toDate parse error.")
 			log.Println(err)
