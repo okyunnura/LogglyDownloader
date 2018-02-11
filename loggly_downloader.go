@@ -193,6 +193,13 @@ func main() {
 	log.Printf("%q\n", tagResult)
 
 	log.Println("start uuid value load.")
+
+	infoFile := dir + "/info.txt"
+	value := fmt.Sprintf("%s\t%s\t%s\t%s\t%s", "UUID", "AppVersion", "OsType", "OsVersion", "Model")
+	if err := appendText(infoFile, value); err != nil {
+		log.Println("error: append text")
+		log.Fatalln(err)
+	}
 	for index, tag := range tagResult.Tag {
 		uuid := tag.Term
 		log.Printf("%d/%d [%s]\n", index+1, len(tagResult.Tag), uuid)
@@ -223,18 +230,24 @@ func main() {
 		}
 
 		//results := []Result{}
-		for _, f := range records {
+		for recordIndex, f := range records {
 			var eventResult EventResult
 			if err := json.Unmarshal([]byte(f), &eventResult); err != nil {
 				log.Println("error: json unmarshal error.")
 				log.Fatalln(err)
 			}
-			for _, event := range eventResult.Events {
+			for eventIndex, event := range eventResult.Events {
+				if recordIndex == 0 && eventIndex == 0 {
+					value := fmt.Sprintf("%s\t%s\t%s\t%s\t%s", uuid, event.Event.JSON.AppVersion, event.Event.JSON.OsType, event.Event.JSON.OsVersion, event.Event.JSON.Model)
+					if err := appendText(infoFile, value); err != nil {
+						log.Println("error: append text")
+						log.Fatalln(err)
+					}
+				}
 				value := fmt.Sprintf("%s\t%s", event.Event.JSON.Timestamp, event.Event.JSON.Message)
 				if err := appendText(logfile, value); err != nil {
 					log.Println("error: append text")
 					log.Fatalln(err)
-					os.Exit(0)
 				}
 			}
 		}
