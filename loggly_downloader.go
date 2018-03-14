@@ -11,6 +11,7 @@ import (
 	"time"
 	"net/http"
 	"io/ioutil"
+	"net/url"
 )
 
 type SearchResult struct {
@@ -61,11 +62,20 @@ type EventResult struct {
 	Next string `json:"next"`
 }
 
+type Slack struct {
+	Text        string `json:"text"`
+	Username    string `json:"username"`
+	IconEmoji  string `json:"icon_emoji"`
+	IconUrl    string `json:"icon_url"`
+	Channel     string `json:"channel"`
+}
+
 var token string
 var account string
 var fromDate *time.Time
 var toDate *time.Time
 var baseUrl string
+var slackWebHookUrl string
 
 func init() {
 	colog.SetDefaultLevel(colog.LDebug)
@@ -81,6 +91,7 @@ func init() {
 	flag.StringVar(&account, "account", "", "loggly account name.")
 	flag.StringVar(&from, "fromDate", "", "log date from.")
 	flag.StringVar(&to, "toDate", "", "log date to.")
+	flag.StringVar(&slackWebHookUrl, "webhook", "", "slack webhook url.")
 	flag.Parse()
 
 	jst, _ := time.LoadLocation("Asia/Tokyo")
@@ -141,6 +152,14 @@ func main() {
 		paramError = true
 	} else {
 		log.Println("toDate: " + toDate.String() + " (" + toDate.UTC().String() + ")")
+	}
+
+	//slackWebHookUrl
+	if len(slackWebHookUrl) < 1 {
+		log.Println("error: slackWebHookUrl is empty.")
+		paramError = true
+	} else {
+		log.Println("slackWebHookUrl: " + slackWebHookUrl)
 	}
 
 	//param check
@@ -252,6 +271,24 @@ func main() {
 			}
 		}
 	}
+
+	params, _ := json.Marshal(Slack{
+		"ログデータのダウンロード処理が完了したよ！",
+		"gopher",
+		"",
+		"https://raw.githubusercontent.com/tenntenn/gopher-stickers/master/png/ok.png",
+		"#notification"})
+
+	resp, _ := http.PostForm(
+		slackWebHookUrl,
+		url.Values{"payload": {string(params)}},
+	)
+
+	if _, err := ioutil.ReadAll(resp.Body); err != nil {
+		log.Println("error: slack notification")
+		log.Fatalln(err)
+	}
+	defer resp.Body.Close()
 
 }
 
