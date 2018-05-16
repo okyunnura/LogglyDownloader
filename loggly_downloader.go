@@ -45,6 +45,7 @@ type EventResult struct {
 		Event struct {
 			JSON struct {
 				Model      string      `json:"model"`
+				User       string      `json:"user"`
 				Level      string      `json:"level"`
 				Timestamp  interface{} `json:"timestamp"`
 				OsVersion  string      `json:"os_version"`
@@ -63,11 +64,11 @@ type EventResult struct {
 }
 
 type Slack struct {
-	Text        string `json:"text"`
-	Username    string `json:"username"`
-	IconEmoji  string `json:"icon_emoji"`
-	IconUrl    string `json:"icon_url"`
-	Channel     string `json:"channel"`
+	Text      string `json:"text"`
+	Username  string `json:"username"`
+	IconEmoji string `json:"icon_emoji"`
+	IconUrl   string `json:"icon_url"`
+	Channel   string `json:"channel"`
 }
 
 var token string
@@ -214,7 +215,7 @@ func main() {
 	log.Println("start uuid value load.")
 
 	infoFile := dir + "/info.txt"
-	value := fmt.Sprintf("%s\t%s\t%s\t%s\t%s", "UUID", "AppVersion", "OsType", "OsVersion", "Model")
+	value := fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s", "UUID", "AppVersion", "OsType", "OsVersion", "Model", "User")
 	if err := appendText(infoFile, value); err != nil {
 		log.Println("error: append text")
 		log.Fatalln(err)
@@ -257,7 +258,7 @@ func main() {
 			}
 			for eventIndex, event := range eventResult.Events {
 				if recordIndex == 0 && eventIndex == 0 {
-					value := fmt.Sprintf("%s\t%s\t%s\t%s\t%s", uuid, event.Event.JSON.AppVersion, event.Event.JSON.OsType, event.Event.JSON.OsVersion, event.Event.JSON.Model)
+					value := fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s", uuid, event.Event.JSON.AppVersion, event.Event.JSON.OsType, event.Event.JSON.OsVersion, event.Event.JSON.Model, event.Event.JSON.User)
 					if err := appendText(infoFile, value); err != nil {
 						log.Println("error: append text")
 						log.Fatalln(err)
